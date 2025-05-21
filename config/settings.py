@@ -5,7 +5,6 @@ from pathlib import Path
 load_dotenv()
 
 class Settings:
-    """Configuration settings from .env"""
     
     # Jira
     JIRA_SERVER = os.getenv("JIRA_SERVER")
@@ -15,7 +14,7 @@ class Settings:
     # OpenAI
     OPENAI_KEY = os.getenv("OPENAI_API_KEY")
     
-    # ChromaDB
+    # Chroma
     CHROMA_PATH = Path(os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")).absolute()
     
     # Email
@@ -24,10 +23,8 @@ class Settings:
     EMAIL_USER = os.getenv("EMAIL_USER")
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
     
-    # Validation
     @classmethod
     def validate(cls):
-        """Check required settings"""
         missing = []
         for var in ['JIRA_SERVER', 'JIRA_USERNAME', 'JIRA_API_TOKEN',
                    'OPENAI_API_KEY', 'EMAIL_USER', 'EMAIL_PASSWORD']:
@@ -38,3 +35,6 @@ class Settings:
             raise ValueError(f"Missing required env vars: {', '.join(missing)}")
 
 Settings.validate()
+
+#s = Settings()
+#print(s.JIRA_TOKEN)
