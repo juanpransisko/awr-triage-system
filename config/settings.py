@@ -1,23 +1,40 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
 class Settings:
+    """Configuration settings from .env"""
+    
     # Jira
     JIRA_SERVER = os.getenv("JIRA_SERVER")
-    JIRA_USER = os.getenv("JIRA_USER")
+    JIRA_USER = os.getenv("JIRA_USERNAME")
     JIRA_TOKEN = os.getenv("JIRA_API_TOKEN")
-    
-    # ChromaDB
-    CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_db")
     
     # OpenAI
     OPENAI_KEY = os.getenv("OPENAI_API_KEY")
     
+    # ChromaDB
+    CHROMA_PATH = Path(os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")).absolute()
+    
     # Email
     SMTP_SERVER = os.getenv("SMTP_SERVER")
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+    EMAIL_USER = os.getenv("EMAIL_USER")
+    EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
     
-    # Escalation
-    ESCALATION_TIME_HOURS = 24
+    # Validation
+    @classmethod
+    def validate(cls):
+        """Check required settings"""
+        missing = []
+        for var in ['JIRA_SERVER', 'JIRA_USERNAME', 'JIRA_API_TOKEN',
+                   'OPENAI_API_KEY', 'EMAIL_USER', 'EMAIL_PASSWORD']:
+            if not os.getenv(var):
+                missing.append(var)
+        
+        if missing:
+            raise ValueError(f"Missing required env vars: {', '.join(missing)}")
+
+Settings.validate()
