@@ -1,7 +1,7 @@
 from jira import JIRA
 from jira.exceptions import JIRAError
 from config.settings import Settings
-from core.logger import logger
+from awr.logger import logger
 import json
 from typing import Optional, Dict, Any
 
