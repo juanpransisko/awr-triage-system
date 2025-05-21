@@ -1,5 +1,6 @@
 from docx import Document
 import re
+import json
 from collections import defaultdict
 
 
@@ -66,3 +67,69 @@ def extract_structured_sections(file_path):
     flush_buffer() # last section
     return result
 
+
+def clean_whitespace(s):
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def dict_to_json(nested_dict):
+    ''' since we use defaultdict here, we need to convert it to json '''
+
+    def to_dict(nested_dict):
+        ''' recursive covnersion here '''
+        if isinstance(nested_dict, defaultdict):
+            return {k: to_dict(v) for k,v in nested_dict.items()}
+        return nested_dict
+
+    # to regular dictionary now then to json str then deserialize
+    converted = to_dict(nested_dict)
+    json_value = json.loads(json.dumps(converted, indent=2))
+    return json_value
+
+
+def flatten_json(nested_json, parent_key='', sep=' > '):
+    ''' after reading, if we are going to feed json to the embedding model,
+    then it is more advisable to have the data in flattened format particularly
+    because of the nested sections. we do this to ensure that one section
+    pertains to a semantic unit, one topic at a time for easier retrieval.
+
+    Example:
+    {
+        "Pricing and Payment Terms": {
+            "Payment Terms": {
+                "Annual Maintenance Charges": "Customer shall pay..."
+            }
+        }
+    }
+    
+    will be converted to
+    {
+    "Pricing and Payment Terms > Payment Terms > Annual Maintenance Charges":
+        "Customer shall pay..."
+    }
+    '''
+
+    flat_dict = {}
+    
+    for key, value in nested_json.items():
+        new_key = f"{parent_key}{sep}{key}" if parent_key else key
+    
+        if isinstance(value, dict):
+            flat_dict.update(flatten_json(value, new_key, sep=sep))
+        
+        else:
+            # Normalize whitespace in value
+            cleaned_value = ' '.join(value.split())
+            flat_dict[new_key] = cleaned_value
+    
+    return flat_dict
+
+
+def extract_awr_doc_sections(document_path: str):
+    '''
+    returns the extracted document sections in a flattened json format
+    '''
+    
+    sections = extract_structured_sections(document_path)
+    json_value = dict_to_json(sections)
+    return flatten_json(json_value)
