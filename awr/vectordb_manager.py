@@ -14,7 +14,7 @@ class VectorDBManager:
             name="awr_tickets",
             embedding_function=self.ef
         )
-        logger.info("ChromaDB initialized")
+        logger.info("Vector DB [ChromaDB] initialized")
 
     def find_similar_tickets(self, text: str, n_results: int = 3):
         """Find similar tickets using vector search"""
