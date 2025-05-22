@@ -24,12 +24,16 @@ class Settings:
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
     EMAIL_USER = os.getenv("EMAIL_USER")
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-    
+
+    # Escalation
+    ESCALATION_HOURS = int(os.getenv("ESCALATION_HOURS", 24))
+
     @classmethod
     def validate(cls):
         missing = []
         for var in ['JIRA_SERVER', 'JIRA_USERNAME', 'JIRA_API_TOKEN',
-                   'OPENAI_API_KEY', 'EMAIL_USER', 'EMAIL_PASSWORD']:
+                   'OPENAI_API_KEY', 'EMAIL_USER', 'EMAIL_PASSWORD',
+                   'CHROMA_PATH', 'SMTP_SERVER', 'SMTP_PORT']:
             if not os.getenv(var):
                 missing.append(var)
         
