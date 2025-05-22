@@ -15,7 +15,9 @@ class Settings:
     OPENAI_KEY = os.getenv("OPENAI_API_KEY")
     
     # Chroma
-    CHROMA_PATH = Path(os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")).absolute()
+    CHROMA_PATH = Path(os.getenv(
+        "CHROMA_PERSIST_DIR", "./data/chroma_db"
+    )).absolute()
     
     # Email
     SMTP_SERVER = os.getenv("SMTP_SERVER")
@@ -35,6 +37,6 @@ class Settings:
             raise ValueError(f"Missing required env vars: {', '.join(missing)}")
 
 Settings.validate()
-
+settings = Settings()
 #s = Settings()
 #print(s.JIRA_TOKEN)
