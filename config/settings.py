@@ -9,8 +9,8 @@ class Settings:
 
     # Jira
     JIRA_SERVER = os.getenv("JIRA_SERVER")
-    JIRA_USER = os.getenv("JIRA_USERNAME")
-    JIRA_TOKEN = os.getenv("JIRA_API_TOKEN")
+    JIRA_USERNAME = os.getenv("JIRA_USERNAME")
+    JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 
     # OpenAI
     OPENAI_KEY = os.getenv("OPENAI_API_KEY")

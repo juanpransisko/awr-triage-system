@@ -6,7 +6,6 @@ from config.settings import Settings
 from awr.logger import logger
 import xml.etree.ElementTree as ET
 from hashlib import sha256
-import json
 
 
 def check_existing_db():

@@ -7,7 +7,7 @@ from awr.logger import logger
 class EmbeddingGenerator:
     def __init__(self):
         self.model = Settings.AZURE_OPENAI_DEPLOYMENT
-        self.dimensions = 3072  # Can reduce to 256 for smaller vectors
+        self.dimensions = 3072  # Can reduce to 256
 
     def generate(self, text: str) -> np.ndarray:
         try:
