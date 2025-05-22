@@ -1,7 +1,8 @@
 import openai
 import numpy as np
 from config.settings import Settings
-from utils.logger import logger
+from awr.logger import logger
+
 
 class EmbeddingGenerator:
     def __init__(self):
@@ -11,9 +12,7 @@ class EmbeddingGenerator:
     def generate(self, text: str) -> np.ndarray:
         try:
             response = openai.embeddings.create(
-                input=text,
-                model=self.model,
-                dimensions=self.dimensions
+                input=text, model=self.model, dimensions=self.dimensions
             )
             return np.array(response.data[0].embedding)
         except Exception as e:
