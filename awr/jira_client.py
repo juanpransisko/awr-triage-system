@@ -5,6 +5,7 @@ from awr.logger import logger
 import json
 from typing import Optional, Dict, Any
 
+
 class JiraClient:
     def __init__(self):
         """Initialize JIRA client with verbose logging"""
@@ -13,7 +14,7 @@ class JiraClient:
             self.client = JIRA(
                 server=Settings.JIRA_SERVER,
                 basic_auth=(Settings.JIRA_USER, Settings.JIRA_TOKEN),
-                timeout=30
+                timeout=30,
             )
             logger.debug(f"Connected to JIRA at {Settings.JIRA_SERVER}")
             logger.info(f"Logged in as {Settings.JIRA_USER}")
@@ -29,11 +30,17 @@ class JiraClient:
         logger.info(f"Fetching ticket {ticket_id}")
         try:
             ticket = self.client.issue(ticket_id)
-            logger.debug(f"Retrieved ticket fields: {list(ticket.raw['fields'].keys())}")
-            logger.verbose(f"Ticket {ticket_id} details:\n{json.dumps(ticket.raw, indent=2, default=str)}")
+            logger.debug(
+                f"Retrieved ticket fields: {list(ticket.raw['fields'].keys())}"
+            )
+            logger.verbose(
+                f"Ticket {ticket_id} details:\n{json.dumps(ticket.raw, indent=2, default=str)}"
+            )
             return ticket
         except JIRAError as e:
-            logger.error(f"Failed to fetch {ticket_id}: {e.text if hasattr(e, 'text') else str(e)}")
+            logger.error(
+                f"Failed to fetch {ticket_id}: {e.text if hasattr(e, 'text') else str(e)}"
+            )
             return None
         except Exception as e:
             logger.exception(f"Unexpected error fetching ticket: {str(e)}")
@@ -41,14 +48,14 @@ class JiraClient:
 
     def update_ticket(self, ticket, **fields) -> bool:
         """Update ticket with change tracking"""
-        changes = "\n".join([f"{k}: {v}" for k,v in fields.items()])
+        changes = "\n".join([f"{k}: {v}" for k, v in fields.items()])
         logger.info(f"Updating {ticket.key} with:\n{changes}")
 
         try:
             before = json.dumps(ticket.raw, default=str)
             ticket.update(fields=fields)
             after = json.dumps(self.client.issue(ticket.key).raw, default=str)
-            
+
             logger.debug(f"Update successful for {ticket.key}")
             logger.verbose(
                 f"Change comparison for {ticket.key}:\n"
@@ -72,25 +79,27 @@ class JiraClient:
                 summary=f"Review disputed AWR: {ticket_id}",
                 issuetype={"name": "Approval Task"},
                 description=f"Disputed classification for {ticket_id}",
-                customfield_10010=ticket_id  # Link field
+                customfield_10010=ticket_id,  # Link field
             )
             logger.info(f"Created approval task {task.key}")
             logger.debug(f"Task details: {task.raw}")
             return task
         except JIRAError as e:
             logger.error(f"Task creation failed: {e.text}")
-            logger.debug(f"Attempted payload: {json.dumps({
+            logger.debug(
+                f"Attempted payload: {json.dumps({
                 'project': 'OPS',
                 'summary': f'Review disputed AWR: {ticket_id}',
                 'issuetype': {'name': 'Approval Task'}
-            }, indent=2)}")
+            }, indent=2)}"
+            )
             return None
         except Exception as e:
             logger.exception(f"Unexpected task creation error: {str(e)}")
             raise
 
     def search_tickets(self, jql: str, max_results: int = 100) -> list:
-        """Search tickets with query logging"""
+        """utilize JQL (jira query language) for searching tickets"""
         logger.info(f"Executing JQL: {jql}")
         try:
             issues = self.client.search_issues(jql, maxResults=max_results)
@@ -107,7 +116,6 @@ class JiraClient:
             raise
 
     def add_comment(self, ticket_id: str, comment: str) -> bool:
-        """Add comment with content logging"""
         logger.info(f"Adding comment to {ticket_id}")
         logger.verbose(f"Comment content:\n{comment}")
         try:
@@ -127,8 +135,6 @@ ticket = jira.get_ticket("SCRUM-3")
 
 if ticket:
     jira.update_ticket(
-        ticket,
-        labels=["AI_PROCESSED"],
-        summary=f"{ticket.fields.summary} [PROCESSED]"
+        ticket, labels=["AI_PROCESSED"], summary=f"{ticket.fields.summary} [PROCESSED]"
     )
     jira.add_comment(ticket.key, "Automated processing complete")
