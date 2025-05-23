@@ -1,15 +1,16 @@
-
 from enum import Enum
-from core.models import Priority
+from awr.models import Priority
+
 
 class Thresholds:
     # text-embedding-3-large will return the normalized embeddings
     # after similarity search (cosine similarity)
     _VALUES = {
-        Priority.CRITICAL: {"duplicate": 0.92, "review": 0.85},
-        Priority.HIGH: {"duplicate": 0.89, "review": 0.82},
-        Priority.MEDIUM: {"duplicate": 0.85, "review": 0.78},
-        Priority.LOW: {"duplicate": 0.80, "review": 0.75}
+        Priority.SHOW_STOPPER: {"duplicate": 0.96, "review": 0.85},
+        Priority.URGENT: {"duplicate": 0.93, "review": 0.82},
+        Priority.HIGH: {"duplicate": 0.90, "review": 0.78},
+        Priority.MEDIUM: {"duplicate": 0.85, "review": 0.75},
+        Priority.LOW: {"duplicate": 0.80, "review": 0.70}
     }
 
     @classmethod
