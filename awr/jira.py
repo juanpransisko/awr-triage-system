@@ -13,20 +13,58 @@ class JiraClient:
 
     def __init__(self):
         logger.info("Initializing JIRA client")
+        self.project_key = settings.JIRA_PROJECT_KEY
         try:
             self.client = JIRA(
-                server=Settings.JIRA_SERVER,
-                basic_auth=(Settings.JIRA_USER, Settings.JIRA_TOKEN),
+                server=settings.JIRA_SERVER,
+                basic_auth=(settings.JIRA_USERNAME, settings.JIRA_API_TOKEN),
                 timeout=30,
             )
-            logger.debug(f"Connected to JIRA at {Settings.JIRA_SERVER}")
-            logger.info(f"Logged in as {Settings.JIRA_USER}")
+            logger.debug(f"Connected to JIRA at {settings.JIRA_SERVER}")
+            logger.info(f"Logged in as {settings.JIRA_USERNAME}")
         except JIRAError as e:
             logger.critical(f"JIRA connection failed: {str(e)}", exc_info=True)
             raise
         except Exception as e:
             logger.error(f"Unexpected connection error: {str(e)}", exc_info=True)
             raise
+
+    def create_ticket(self, summary, description, project_key=None, issue_type="Task"):
+        project_key = self.project_key
+        logger.info(f"Using project key {project_key}")
+
+        issue_dict = {
+            "project": {"key": project_key},
+            "summary": summary,
+            "description": description,
+            "issuetype": {"name": issue_type},
+        }
+
+        try:
+            logger.info(
+                f"Creating issue in project '{project_key}' with summary '{summary}'"
+            )
+            logger.debug(f"Issue payload:\n{json.dumps(issue_dict, indent=2)}")
+
+            new_issue = self.client.create_issue(fields=issue_dict)
+
+            if not new_issue:
+                logger.error("create_issue returned None unexpectedly.")
+                return None
+
+            logger.info(f"Issue created: {new_issue.key}")
+            return new_issue.key
+
+        except JIRAError as e:
+            logger.error(f"JIRAError: {e.status_code} - {getattr(e, 'text', str(e))}")
+            if hasattr(e, "response"):
+                logger.error(f"JIRA response: {e.response.text}")
+            logger.debug(f"Failed payload:\n{json.dumps(issue_dict, indent=2)}")
+            return None
+
+        except Exception as e:
+            logger.exception("Unexpected error creating issue")
+            return None
 
     def get_ticket(self, ticket_id: str) -> Optional[Issue]:
         logger.info(f"Fetching ticket {ticket_id}")
@@ -68,14 +106,15 @@ class JiraClient:
 
     def create_approval_task(self, ticket_id: str) -> Optional[Issue]:
         logger.info(f"Creating approval task for {ticket_id}")
+        issue_dict = {
+            "project": {"key": self.project_key},
+            "summary": f"Review disputed AWR: {ticket_id}",
+            "description": f"Disputed classification for {ticket_id}",
+            "issuetype": {"name": "Approval Task"},
+            self.approval_task_customfield: ticket_id,
+        }
         try:
-            task = self.client.create_issue(
-                project=self.project_key,
-                summary=f"Review disputed AWR: {ticket_id}",
-                issuetype={"name": "Approval Task"},
-                description=f"Disputed classification for {ticket_id}",
-                **{self.approval_task_customfield: ticket_id},
-            )
+            task = self.client.create_issue(fields=issue_dict)
             logger.info(f"Created approval task {task.key}")
             logger.debug(f"Task fields: {task.raw.get('fields', {})}")
             return task
@@ -83,13 +122,7 @@ class JiraClient:
             logger.error(
                 f"Task creation failed: {e.text if hasattr(e, 'text') else str(e)}"
             )
-            logger.debug(
-                f"Attempted payload: {json.dumps({
-                    'project': self.project_key, 
-                    'summary': f'Review disputed AWR: {ticket_id}', 
-                    'issuetype': {'name': 'Approval Task'}
-                }, indent=2)}"
-            )
+            logger.debug(f"Attempted payload: {json.dumps(issue_dict, indent=2)}")
             return None
         except Exception as e:
             logger.exception(f"Unexpected task creation error: {str(e)}")

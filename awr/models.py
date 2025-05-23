@@ -1,13 +1,14 @@
-
-
 from enum import Enum
 from pydantic import BaseModel
 
+
 class Priority(str, Enum):
-    CRITICAL = "Critical"
+    SHOW_STOPPER = "Show Stopper"
+    URGENT = "Urgent"
     HIGH = "High"
     MEDIUM = "Medium"
     LOW = "Low"
+
 
 class JiraTicket(BaseModel):
     id: str
@@ -15,5 +16,3 @@ class JiraTicket(BaseModel):
     description: str
     priority: Priority
     labels: list[str] = []
-
-

@@ -24,8 +24,7 @@ class EmbeddingGenerator:
             embedding = response.data[0].embedding
             if len(embedding) != self.dimensions:
                 logger.warning(
-                    f"Embedding dimension mismatch: exp {self.dimensions}," \ 
-                    " got {len(embedding)}"
+                    f"Embedding dimension mismatch: exp {self.dimensions}, got {len(embedding)}"
                 )
             return np.array(embedding, dtype=float)
         except Exception as e:
