@@ -15,22 +15,13 @@ class EmailNotifier:
 
     def send(
         self,
-        to: str | List[str],
+        to: Union[str, List[str]],
         subject: str,
         body: str,
         html_body: Optional[str] = None,
         cc: Optional[List[str]] = None,
     ) -> bool:
-        """
-        Send email with retry logic and rich formatting support.
-            to: Single or list of recipient emails
-            subject: Email subject
-            body: Plain text body
-            html_body: Optional HTML content
-            cc: List of CC recipients
 
-            bool: True if sent successfully
-        """
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = Settings.EMAIL_USER
@@ -43,7 +34,7 @@ class EmailNotifier:
         if html_body:
             msg.attach(MIMEText(html_body, "html"))
 
-        # Send with retry logic
+        # Retry with simple backoff (could be improved)
         for attempt in range(self.max_retries):
             try:
                 with smtplib.SMTP(
@@ -52,16 +43,16 @@ class EmailNotifier:
                     server.starttls(context=self.ssl_context)
                     server.login(Settings.EMAIL_USER, Settings.EMAIL_PASSWORD)
                     server.send_message(msg)
-
-                logger.info(f"Email sent to {to}")
+                logger.info(f"Email sent to {msg['To']}")
                 return True
 
             except smtplib.SMTPException as e:
-                logger.warning(f"Email attempt {attempt + 1} failed: {str(e)}")
+                logger.warning(f"Email attempt {attempt + 1} failed: {e}")
                 if attempt == self.max_retries - 1:
                     logger.error(
                         f"Failed to send email after {self.max_retries} attempts"
                     )
                     return False
-
-        return False
+            except Exception as e:
+                logger.error(f"Unexpected error in email send: {e}")
+                return False
