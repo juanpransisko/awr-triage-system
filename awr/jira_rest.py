@@ -9,7 +9,8 @@ from awr.logger import logger
 
 class JiraClientREST:
     def __init__(self):
-        self.base_url = settings.JIRA_SERVER
+        # self.base_url = settings.JIRA_SERVER
+        self.base_url = "https://devjfto.atlassian.net"
         self.auth = (settings.JIRA_USERNAME, settings.JIRA_API_TOKEN)
         self.headers = {"Content-Type": "application/json"}
         self.project_key = settings.JIRA_PROJECT_KEY
@@ -23,68 +24,31 @@ class JiraClientREST:
         logger.info(f"Base URL: {self.base_url}")
         logger.info(f"Logged in as {settings.JIRA_USERNAME}")
 
-    def _request(
-        self,
-        method: str,
-        endpoint: str,
-        max_retries: int = 3,
-        backoff_factor: float = 1.0,
-        **kwargs,
-    ) -> Optional[dict]:
+    def _request(self, method, endpoint, max_retries=3, backoff_factor=1, **kwargs):
         url = f"{self.base_url}{endpoint}"
-
-        for attempt in range(1, max_retries + 1):
-            logger.debug(f"Attempt {attempt} - {method} {url}")
-
-            if "json" in kwargs:
-                logger.debug(f"Payload: {json.dumps(kwargs['json'], indent=2)}")
-            elif "data" in kwargs:
-                logger.debug(f"Payload (data): {kwargs['data']}")
-
-            try:
-                response = self.session.request(
-                    method,
-                    url,
-                    timeout=self.timeout,
-                    **kwargs,
-                )
-
-                # rate limiting (HTTP 429)
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get("Retry-After", "10"))
-                    logger.warning(
-                        f"Rate limited by Jira API. Retry after {retry_after} seconds."
-                    )
-                    time.sleep(retry_after)
-                    continue  # retry after wait
-
-                # server errors
-                if response.status_code >= 500:
-                    logger.warning(
-                        f"Server error {response.status_code} on {url}. Retrying..."
-                    )
-                    raise requests.exceptions.HTTPError(
-                        f"Server error {response.status_code}"
-                    )
-                response.raise_for_status()
-
-                if response.text:
-                    return response.json()
-                return None
-
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Request failed on attempt {attempt}: {e}")
-                if attempt == max_retries:
-                    logger.error(f"Max retries reached for {url}")
-                    break
-
-                # backoff with jitter
-                sleep_time = backoff_factor * (2 ** (attempt - 1))  # exp
-                sleep_time += random.uniform(-0.5, 0.5)
-                sleep_time = max(sleep_time, 0)
-                logger.info(f"Retrying after {sleep_time:.2f}s...")
-                time.sleep(sleep_time)
-        return None
+        logger.debug(f"Request URL: {url}")
+        if "json" in kwargs:
+            logger.debug(
+                f"Request JSON payload: {json.dumps(kwargs['json'], indent=2)}"
+            )
+        try:
+            response = requests.request(
+                method,
+                url,
+                auth=self.auth,
+                headers=self.headers,
+                timeout=30,
+                **kwargs,
+            )
+            logger.debug(f"Response code: {response.status_code}")
+            logger.debug(f"Response body: {response.text}")
+            response.raise_for_status()
+            if response.text:
+                return response.json()
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            raise
 
     def create_ticket(
         self,

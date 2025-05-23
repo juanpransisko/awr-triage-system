@@ -16,7 +16,8 @@ class JiraClient:
         self.project_key = settings.JIRA_PROJECT_KEY
         try:
             self.client = JIRA(
-                server=settings.JIRA_SERVER,
+                # server=settings.JIRA_SERVER,
+                server="https://devjfto.atlassian.net",
                 basic_auth=(settings.JIRA_USERNAME, settings.JIRA_API_TOKEN),
                 timeout=30,
             )
