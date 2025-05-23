@@ -1,20 +1,33 @@
 import openai
 import numpy as np
-from config.settings import Settings
+from config.settings import settings
 from awr.logger import logger
 
 
 class EmbeddingGenerator:
     def __init__(self):
-        self.model = Settings.AZURE_OPENAI_DEPLOYMENT
-        self.dimensions = 3072  # Can reduce to 256
+        self.model = settings.AZURE_OPENAI_DEPLOYMENT
+        self.dimensions = (
+            settings.AZURE_OPENAI_MODEL_DIMENSIONS
+        )  # can be reduced to 256 for performance
 
     def generate(self, text: str) -> np.ndarray:
+        if not text.strip():
+            logger.warning("Empty text input for embedding generation")
+            return np.zeros(self.dimensions, dtype=float)
+
         try:
             response = openai.embeddings.create(
-                input=text, model=self.model, dimensions=self.dimensions
+                model=self.model,
+                input=text,
             )
-            return np.array(response.data[0].embedding)
+            embedding = response.data[0].embedding
+            if len(embedding) != self.dimensions:
+                logger.warning(
+                    f"Embedding dimension mismatch: exp {self.dimensions}," \ 
+                    " got {len(embedding)}"
+                )
+            return np.array(embedding, dtype=float)
         except Exception as e:
-            logger.error(f"Embedding failed: {str(e)}")
+            logger.error(f"Embedding generation failed: {e}", exc_info=True)
             raise

@@ -2,7 +2,7 @@ import chromadb
 from chromadb.errors import DuplicateIDError
 import shutil
 import chromadb.utils.embedding_functions as embedding_functions
-from config.settings import Settings
+from config.settings import settings
 from awr.logger import logger
 import xml.etree.ElementTree as ET
 from hashlib import sha256
@@ -24,13 +24,13 @@ class ChromaDB:
     def __init__(self):
         check_existing_db()
         self.ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=Settings.AZURE_OPENAI_API_KEY,
-            api_base=Settings.AZURE_OPENAI_ENDPOINT,
+            api_key=settings.AZURE_OPENAI_API_KEY,
+            api_base=settings.AZURE_OPENAI_ENDPOINT,
             api_type="azure",
             api_version="2023-05-15",
-            deployment_id=Settings.AZURE_OPENAI_DEPLOYMENT,
+            deployment_id=settings.AZURE_OPENAI_DEPLOYMENT,
         )
-        self.client = chromadb.PersistentClient(path=str(Settings.CHROMA_PATH))
+        self.client = chromadb.PersistentClient(path=str(settings.CHROMA_PATH))
         self.collection = self.client.get_or_create_collection(
             name="awr", embedding_function=self.ef
         )
@@ -127,10 +127,10 @@ class ChromaDB:
                     records.append(record)
 
         except ET.ParseError as e:
-            print(f"Error parsing XML file: {e}")
+            logger.error("Error parsing XML file", extra={"file_path": file_path})
             return []
         except FileNotFoundError:
-            print(f"XML file not found: {file_path}")
+            logger.error(f"XML file not found: {file_path}")
             return []
 
         return records
@@ -210,10 +210,10 @@ class ChromaDB:
                     records.append(record)
 
         except ET.ParseError as e:
-            print(f"Error parsing XML file: {e}")
+            logger.error(f"Error parsing XML file: {e}")
             return []
         except FileNotFoundError:
-            print(f"XML file not found: {file_path}")
+            logger.error(f"XML file not found: {file_path}")
             return []
 
         return records
@@ -221,7 +221,7 @@ class ChromaDB:
     def populate(self, documents, metadatas, uids):
         try:
             if not (documents and metadatas and uids):
-                print("No valid documents found to add to ChromaDB.")
+                logger.warning("No valid documents found to add to ChromaDB.")
                 return False
 
             assert (
@@ -231,33 +231,34 @@ class ChromaDB:
             documents = [doc for doc in documents if doc]
 
             self.collection.upsert(documents=documents, metadatas=metadatas, ids=uids)
-            print(f"Added {len(documents)} documents to ChromaDB")
-            print(f"Collection now contains {self.collection.count()} entries.")
+            logger.info(f"Added {len(documents)} documents to ChromaDB")
+            logger.info(f"Collection now contains {self.collection.count()} entries.")
             return True
 
         except DuplicateIDError:
-            print("Duplicate records found.")
+            logger.warning("Duplicate records found.")
+            return False
         except Exception as e:
-            print(f"Unexpected error: {e}")
-        return False
+            logger.error(f"Unexpected error in populate method: {e}", exc_info=True)
+            return False
 
     def init_populate(self, xml_file_path=None):
         """we initialize chromadb using the contents of xml file,"""
         if not xml_file_path:
-            xml_file_path = "./data/xml/AWRData_List.xml"
+            xml_file_path = settings.XML_SOURCE
 
         # Try element-based parsing first, then attribute-based if needed
         records = self.parse_xml_file(xml_file_path)
 
         # If no records found, try attribute-based parsing
         if not records:
-            print(
+            logger.warning(
                 "No records found with element-based parsing, "
                 "trying attribute-based parsing..."
             )
             records = self.parse_xml_file_attributes(xml_file_path)
 
-        print(f"Found {len(records)} records in XML file")
+        logger.info(f"Found {len(records)} records in XML file")
 
         for record in records:
             # Create document content by combining title and description

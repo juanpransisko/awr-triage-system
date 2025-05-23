@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Dict, Any
+
 from awr.jira import JiraClient
 from awr.chroma import ChromaDB
 from awr.embedding import EmbeddingGenerator
@@ -5,7 +8,7 @@ from awr.messaging import EmailNotifier
 from awr.models import JiraTicket
 from awr.logger import logger
 from config.thresholds import Thresholds
-from typing import Dict, Any
+from config.settings import settings
 
 
 class TriageWorkflow:
@@ -16,89 +19,103 @@ class TriageWorkflow:
         self.notifier = EmailNotifier()
 
     def process(self, ticket_id: str):
-
         ticket = self.jira.get_ticket(ticket_id)
         if not ticket:
-            logger.error(f"Ticket {ticket_id} not found")
+            logger.error(f"[Triage] Ticket not found: {ticket_id}")
             return
 
-        text = self._generate_ticket_text(ticket)
+        ticket_text = self._format_ticket_text(ticket)
+
         try:
-            embedding = self.embedder.generate(text)
+            embedding = self.embedder.generate(ticket_text)
         except Exception as e:
-            logger.error(f"Embedding generation failed for {ticket_id}: {str(e)}")
+            logger.error(
+                f"[Triage] Embedding generation failed for {ticket_id}: {str(e)}"
+            )
             return
 
-        # Query and classify tickets
-        results = self.chroma.query(text)
-        if not results["ids"][0]:
-            self._handle_new(ticket, embedding)
+        try:
+            result = self.chroma.query(ticket_text)
+        except Exception as e:
+            logger.error(f"[Triage] ChromaDB query failed for {ticket_id}: {str(e)}")
             return
 
-        best_match = results["metadatas"][0][0]
-        similarity = 1 - results["distances"][0][0]  # similarity score
-        thresholds = Thresholds.get(ticket.priority)
+        if not result["ids"][0]:
+            self._classify_new(ticket, embedding)
+            return
 
-        if similarity >= thresholds["duplicate"]:
-            self._handle_duplicate(ticket, best_match, similarity)
-        elif similarity >= thresholds["review"]:
-            self._handle_review(ticket, best_match, similarity)
+        best_match = result["metadatas"][0][0]
+        similarity = 1 - result["distances"][0][0]  # Convert distance to similarity
+        priority_thresholds = Thresholds.get(ticket.priority)
+
+        if similarity >= priority_thresholds["duplicate"]:
+            self._classify_duplicate(ticket, best_match, similarity)
+        elif similarity >= priority_thresholds["review"]:
+            self._classify_review(ticket, best_match, similarity)
         else:
-            self._handle_new(ticket, embedding)
+            self._classify_new(ticket, embedding)
 
-    def _generate_ticket_text(self, ticket: JiraTicket) -> str:
-        """text to be included in ticket, same formating"""
-        components = [
+    def _format_ticket_text(self, ticket: JiraTicket) -> str:
+        """generate a text representation for embedding."""
+        parts = [
             f"[Priority: {ticket.priority}]",
             f"Title: {ticket.summary}",
             f"Description: {ticket.description or 'No description'}",
             f"Labels: {', '.join(ticket.labels) if ticket.labels else 'No labels'}",
         ]
-        return "\n".join(filter(None, components))
+        return "\n".join(parts)
 
-    def _handle_duplicate(
+    def _classify_duplicate(
         self, ticket: JiraTicket, match: Dict[str, Any], similarity: float
     ):
-        """for tickets flagged by system to be duplicate"""
-        updates = {
-            "labels": list(set(ticket.labels + ["AI_DUPLICATE"])),
-            "summary": f"{ticket.summary} [DUPLICATE: {match['id']}]",
-        }
-        self.jira.update_ticket(ticket.id, updates)
-        self.notifier.send(
-            to="team@company.com",
-            subject=f"Duplicate detected: {ticket.id}",
-            body=f"Duplicate of {match['id']} with similarity {similarity:.2f}",
-        )
-
-    def _handle_review(
-        self, ticket: JiraTicket, match: Dict[str, Any], similarity: float
-    ):
-        """for tickets that might be of similar nature, similarity high"""
-        updates = {
-            "labels": list(set(ticket.labels + ["AI_REVIEW"])),
-            "summary": f"{ticket.summary} [REVIEW NEEDED: {match['id']}]",
-            "comment": {
-                "body": f"Potential relation to {match['id']} (similarity: {similarity:.2f})\n"
-                f"Original title: {match['summary']}"
+        """update Jira and notify for duplicate ticket."""
+        self.jira.update_ticket(
+            ticket.id,
+            {
+                "labels": list(set(ticket.labels + ["AI_DUPLICATE"])),
+                "summary": f"{ticket.summary} [DUPLICATE: {match['id']}]",
             },
-        }
-        self.jira.update_ticket(ticket.id, updates)
+        )
         self.notifier.send(
-            to="team@company.com",
-            subject=f"Review needed for {ticket.id}",
-            body=f"Potential relation to {match['id']} (similarity: {similarity:.2f})",
+            to=settings.EMAIL_USER,
+            subject=f"[Triage] Duplicate detected: {ticket.id}",
+            body=f"Duplicate of {match['id']} (similarity: {similarity:.2f})",
         )
 
-    def _handle_new(self, ticket: JiraTicket, embedding):
-        """entirely new tickets"""
-        updates = {
-            "labels": list(set(ticket.labels + ["AI_NEW"])),
-            "comment": {"body": "Classified as new ticket - no similar tickets found"},
-        }
-        self.jira.update_ticket(ticket.id, updates)
+    def _classify_review(
+        self, ticket: JiraTicket, match: Dict[str, Any], similarity: float
+    ):
+        """update Jira and notify for ticket needing review."""
+        self.jira.update_ticket(
+            ticket.id,
+            {
+                "labels": list(set(ticket.labels + ["AI_REVIEW"])),
+                "summary": f"{ticket.summary} [REVIEW NEEDED: {match['id']}]",
+                "comment": {
+                    "body": (
+                        f"Potential relation to {match['id']} (similarity: {similarity:.2f})\n"
+                        f"Original title: {match['summary']}"
+                    )
+                },
+            },
+        )
+        self.notifier.send(
+            to=settings.EMAIL_USER,
+            subject=f"[Triage] Review needed: {ticket.id}",
+            body=f"Similar to {match['id']} (similarity: {similarity:.2f})",
+        )
 
-        # Store for future comparisons
+    def _classify_new(self, ticket: JiraTicket, embedding):
+        """update Jira and ingest new ticket into ChromaDB."""
+        self.jira.update_ticket(
+            ticket.id,
+            {
+                "labels": list(set(ticket.labels + ["AI_NEW"])),
+                "comment": {
+                    "body": "Classified as new ticket - no similar match found."
+                },
+            },
+        )
         try:
             self.chroma.add_ticket(
                 ticket_id=ticket.id,
@@ -110,4 +127,6 @@ class TriageWorkflow:
                 },
             )
         except Exception as e:
-            logger.error(f"Failed to store ticket {ticket.id} in ChromaDB: {str(e)}")
+            logger.error(
+                f"[Triage] Failed to store ticket {ticket.id} in ChromaDB: {str(e)}"
+            )

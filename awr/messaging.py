@@ -2,7 +2,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from config.settings import Settings
-from core.logger import logger
+from awr.logger import logger
 from typing import List, Optional, Union
 import ssl
 
