@@ -62,7 +62,6 @@ def load_dummy_data_to_jira(xml_path: str):
             )
             if issue_key:
                 logger.info(f"[{idx}] Created ticket {issue_key}")
-                # Optionally add a comment or update
                 jira.add_comment(issue_key, "Ticket auto-created from XML load.")
                 jira.update_ticket(issue_key, fields={"labels": ["auto-loaded"]})
             else:
