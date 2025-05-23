@@ -34,12 +34,7 @@ class DocumentEmbeddingPipeline:
         return embeddings
 
 
-# Example usage:
-
 # parser = DocumentParser()
 # embedder = EmbeddingGenerator()
 # pipeline = DocumentEmbeddingPipeline(parser, embedder)
-
-# embeddings = pipeline.process_document("path/to/your/awr_document.docx")
-
-# Now embeddings is a dict: {section_path: np.ndarray(embedding_vector)}
+# embeddings = pipeline.process_document(".data/docx/CHAMP-2018-0187 v0.8.docx")
