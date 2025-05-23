@@ -9,6 +9,7 @@ class Settings:
     JIRA_SERVER = os.getenv("JIRA_SERVER")
     JIRA_USERNAME = os.getenv("JIRA_USERNAME")
     JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
+    JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
 
     OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 
