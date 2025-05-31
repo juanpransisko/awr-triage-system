@@ -10,7 +10,7 @@ from hashlib import sha256
 
 def check_existing_db():
     try:
-        shutil.rmtree(".chroma_db")
+        shutil.rmtree(settings.CHROMA_PATH)
     except FileNotFoundError:
         pass
 
@@ -315,18 +315,15 @@ class ChromaDB:
     def query(self, query_text: str, n_results: int = 3):
         awr_docs = self.client.get_collection(name="awr", embedding_function=self.ef)
         results = awr_docs.query(query_texts=[query_text], n_results=n_results)
+
         v_awr = []
         for i in range(len(results["documents"][0])):
-            awr = {
-                # "JIRA_AWR_Title": results['documents'][0][i],
-                # "JIRA_AWR_Title": results['metadatas'][0][i]['JIRA_AWR_Title'],
-                "AWR_DOC_JIRA_REF": results["metadatas"][0][i]["AWR_DOC_JIRA_REF"],
-                "JIRA_AWR_URL": results["metadatas"][0][i]["JIRA_AWR_URL"],
-                "distance": results["distances"][0][i],
-            }
-            v_awr.append(awr)
-
+            metadata = results["metadatas"][0][i]
+            v_awr.append(
+                {
+                    "id": metadata.get("AWR_DOC_JIRA_REF"),
+                    "url": metadata.get("JIRA_AWR_URL"),
+                    "distance": results["distances"][0][i],
+                }
+            )
         return v_awr
-        # return self.collection.query(
-        #     query_texts=[text], n_results=n_results, include=["distances", "metadatas"]
-        # )
